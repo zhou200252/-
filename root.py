@@ -21,10 +21,6 @@ db_config = {
 def get_db_connection():
     return pymysql.connect(**db_config)
 
-@app.route('/')
-def home():
-    return "欢迎使用购物车系统！请使用前端页面进行操作。"
-
 @app.route('/checkout', methods=['POST', 'OPTIONS'])
 def checkout():
     if request.method == 'OPTIONS':
@@ -156,6 +152,53 @@ def get_orders():
         return jsonify({'error': str(e)}), 500
     finally:
         connection.close()
+@app.route('/upload_product', methods=['POST', 'OPTIONS'])
+def upload_product():
+    if request.method == 'OPTIONS':
+        # 处理 OPTIONS 预检请求
+        response = jsonify({'message': 'Preflight request allowed'})
+        response.headers['Access-Control-Allow-Methods'] = 'POST'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response, 200
 
+    data = request.json
+    if not data or 'name' not in data or 'description' not in data or 'price' not in data or 'image' not in data:
+        return jsonify({'error': 'Invalid data'}), 400
+
+    name = data['name']
+    description = data['description']
+    price = data['price']
+    image = data['image']
+
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            sql = """
+            INSERT INTO products (name, description, price, image)
+            VALUES (%s, %s, %s, %s)
+            """
+            cursor.execute(sql, (name, description, price, image))
+        connection.commit()
+    except Exception as e:
+        print(f"Error saving product to database: {e}")
+        return jsonify({'error': 'Failed to save product'}), 500
+    finally:
+        connection.close()
+
+    return jsonify({'message': 'Product uploaded successfully!'}), 200
+@app.route('/api/products', methods=['GET'])
+def get_products():
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            sql = "SELECT * FROM products"
+            cursor.execute(sql)
+            products = cursor.fetchall()
+        return jsonify({'products': products})
+    except Exception as e:
+        print(f"Error fetching products from database: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        connection.close()
 if __name__ == '__main__':
     app.run(debug=True)
