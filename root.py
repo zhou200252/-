@@ -3,10 +3,9 @@ from flask_cors import CORS
 import pymysql
 from decimal import Decimal
 import json
-from datetime import datetime
 
 app = Flask(__name__)
-CORS(app, methods=["POST", "GET", "OPTIONS"], allow_headers=["Content-Type"])
+CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type"]}})
 
 # 数据库配置
 db_config = {
@@ -21,14 +20,21 @@ db_config = {
 def get_db_connection():
     return pymysql.connect(**db_config)
 
+# 根路由
+@app.route('/')
+def home():
+    return "Welcome to the Order Management System!"
+
+# 处理 favicon.ico 请求
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204  # 返回空内容
+
+# 订单相关路由
 @app.route('/checkout', methods=['POST', 'OPTIONS'])
 def checkout():
     if request.method == 'OPTIONS':
-        # 处理 OPTIONS 预检请求
-        response = jsonify({'message': 'Preflight request allowed'})
-        response.headers['Access-Control-Allow-Methods'] = 'POST'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-        return response, 200
+        return jsonify({'message': 'Preflight request allowed'}), 200
 
     data = request.json
     if not data or 'items' not in data or 'total_price' not in data or 'customer' not in data:
@@ -60,14 +66,14 @@ def checkout():
 def get_orders():
     try:
         # 获取查询参数
-        page = int(request.args.get('page', 1))  # 当前页码，默认为 1
-        per_page = int(request.args.get('per_page', 5))  # 每页条数，默认为 5
-        search = request.args.get('search', '')  # 搜索关键字
-        min_price = request.args.get('min_price')  # 最小金额
-        max_price = request.args.get('max_price')  # 最大金额
-        start_date = request.args.get('start_date')  # 开始时间
-        end_date = request.args.get('end_date')  # 结束时间
-        specific_date = request.args.get('specific_date')  # 具体日期
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 5))
+        search = request.args.get('search', '')
+        min_price = request.args.get('min_price')
+        max_price = request.args.get('max_price')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        specific_date = request.args.get('specific_date')
 
         # 白名单验证
         valid_sort_fields = ['created_at', 'total_price']
@@ -121,7 +127,7 @@ def get_orders():
             count_params = [f'%{search}%', f'%{search}%']
 
             if min_price:
-                count_sql += " AND total_price >= %s"
+                count_sql += " AND total_price >= %s)"
                 count_params.append(float(min_price))
             if max_price:
                 count_sql += " AND total_price <= %s"
@@ -152,14 +158,12 @@ def get_orders():
         return jsonify({'error': str(e)}), 500
     finally:
         connection.close()
+
+# 商品相关路由
 @app.route('/upload_product', methods=['POST', 'OPTIONS'])
 def upload_product():
     if request.method == 'OPTIONS':
-        # 处理 OPTIONS 预检请求
-        response = jsonify({'message': 'Preflight request allowed'})
-        response.headers['Access-Control-Allow-Methods'] = 'POST'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-        return response, 200
+        return jsonify({'message': 'Preflight request allowed'}), 200
 
     data = request.json
     if not data or 'name' not in data or 'description' not in data or 'price' not in data or 'image' not in data:
@@ -186,6 +190,7 @@ def upload_product():
         connection.close()
 
     return jsonify({'message': 'Product uploaded successfully!'}), 200
+
 @app.route('/api/products', methods=['GET'])
 def get_products():
     try:
@@ -200,5 +205,6 @@ def get_products():
         return jsonify({'error': str(e)}), 500
     finally:
         connection.close()
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
