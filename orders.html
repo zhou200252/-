@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>订单列表</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+
+    .search-container {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .search-container input {
+      padding: 8px;
+      width: 200px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+
+    .search-container button {
+      padding: 8px 16px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .search-container button:hover {
+      background-color: #0056b3;
+    }
+
+    .filter-container {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .filter-container label {
+      margin-right: 10px;
+    }
+
+    .filter-container input,
+    .filter-container select {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+
+    .order {
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 10px 0;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .order h3 {
+      margin-top: 0;
+    }
+
+    .order p {
+      margin: 5px 0;
+    }
+
+    .order ul {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    .order ul li {
+      padding: 5px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .pagination {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .pagination button {
+      padding: 8px 16px;
+      margin: 0 5px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .pagination button:hover {
+      background-color: #0056b3;
+    }
+
+    .pagination button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .sort-container {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .sort-container select {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>订单列表</h1>
+
+  <!-- 搜索框 -->
+  <div class="search-container">
+    <input type="text" id="search-input" placeholder="输入姓名或手机号">
+    <button onclick="fetchOrders()">搜索</button>
+  </div>
+
+  <!-- 筛选条件 -->
+  <div class="filter-container">
+    <label for="min-price">最小金额：</label>
+    <input type="number" id="min-price" placeholder="最小金额">
+
+    <label for="max-price">最大金额：</label>
+    <input type="number" id="max-price" placeholder="最大金额">
+
+    <label for="start-date">开始时间：</label>
+    <input type="date" id="start-date">
+
+    <label for="end-date">结束时间：</label>
+    <input type="date" id="end-date">
+
+    <label for="specific-date">具体日期：</label>
+    <input type="date" id="specific-date">
+  </div>
+
+  <!-- 排序 -->
+  <div class="sort-container">
+    <label for="sort-by">排序字段：</label>
+    <select id="sort-by" onchange="fetchOrders()">
+      <option value="created_at">创建时间</option>
+      <option value="total_price">总价</option>
+    </select>
+    <label for="sort-order">排序顺序：</label>
+    <select id="sort-order" onchange="fetchOrders()">
+      <option value="desc">降序</option>
+      <option value="asc">升序</option>
+    </select>
+  </div>
+
+  <!-- 订单列表 -->
+  <div id="orders-container">
+    <p>加载中...</p>
+  </div>
+
+  <!-- 分页 -->
+  <div class="pagination">
+    <button id="prev-page" onclick="prevPage()" disabled>上一页</button>
+    <span id="page-info">第 1 页</span>
+    <button id="next-page" onclick="nextPage()" disabled>下一页</button>
+  </div>
+
+  <script>
+    let currentPage = 1; // 当前页码
+    let totalPages = 1; // 总页数
+    const perPage = 5; // 每页条数
+
+    // 从后端获取订单数据
+    async function fetchOrders() {
+      const search = document.getElementById('search-input').value;
+      const sortBy = document.getElementById('sort-by').value;
+      const sortOrder = document.getElementById('sort-order').value;
+      const minPrice = document.getElementById('min-price').value;
+      const maxPrice = document.getElementById('max-price').value;
+      const startDate = document.getElementById('start-date').value;
+      const endDate = document.getElementById('end-date').value;
+      const specificDate = document.getElementById('specific-date').value;
+
+      try {
+        const response = await fetch(
+          `http://127.0.0.1:5000/api/orders?page=${currentPage}&per_page=${perPage}&search=${search}&sort_by=${sortBy}&sort_order=${sortOrder}&min_price=${minPrice}&max_price=${maxPrice}&start_date=${startDate}&end_date=${endDate}&specific_date=${specificDate}`
+        );
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        renderOrders(data.orders);
+        updatePagination(data.total);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        document.getElementById('orders-container').innerHTML = '<p>加载订单数据失败，请稍后重试。</p>';
+      }
+    }
+
+    // 渲染订单数据
+    function renderOrders(orders) {
+      const ordersContainer = document.getElementById('orders-container');
+      if (orders.length === 0) {
+        ordersContainer.innerHTML = '<p>暂无订单数据。</p>';
+        return;
+      }
+
+      let html = '';
+      orders.forEach((order, index) => {
+        // 解析时间字段
+        const created_at = new Date(order.created_at + '+08:00').toLocaleString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+
+        html += `
+          <div class="order">
+            <h3>订单 ${(currentPage - 1) * perPage + index + 1}</h3>
+            <p><strong>客户姓名：</strong>${order.customer_name}</p>
+            <p><strong>客户手机号：</strong>${order.customer_phone}</p>
+            <p><strong>总价：</strong>$${order.total_price}</p>
+            <p><strong>创建时间：</strong>${created_at}</p>
+            <ul>
+              <strong>商品列表：</strong>
+              ${JSON.parse(order.items).map(item => `<li>${item.name} x ${item.quantity} - $${item.price * item.quantity}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      });
+      ordersContainer.innerHTML = html;
+    }
+
+    // 更新分页按钮状态
+    function updatePagination(total) {
+      totalPages = Math.ceil(total / perPage);
+      const prevButton = document.getElementById('prev-page');
+      const nextButton = document.getElementById('next-page');
+      const pageInfo = document.getElementById('page-info');
+
+      prevButton.disabled = currentPage === 1;
+      nextButton.disabled = currentPage === totalPages;
+      pageInfo.textContent = `第 ${currentPage} 页 / 共 ${totalPages} 页`;
+    }
+
+    // 上一页
+    function prevPage() {
+      if (currentPage > 1) {
+        currentPage--;
+        fetchOrders();
+      }
+    }
+
+    // 下一页
+    function nextPage() {
+      if (currentPage < totalPages) {
+        currentPage++;
+        fetchOrders();
+      }
+    }
+
+    // 页面加载时获取订单数据
+    fetchOrders();
+  </script>
+</body>
+</html>
